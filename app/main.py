@@ -19,6 +19,8 @@ log = logging.getLogger(__name__)
 async def main() -> None:
     settings = get_settings()
     setup_logging(settings.log_level)
+    print("🔍 DEBUG: OS Environ =", os.getenv("DATABASE_URL"))
+    print("🔍 DEBUG: Pydantic Value =", get_settings().database_url)
     if not settings.bot_token:
         raise SystemExit("BOT_TOKEN is not set (see .env.example)")
 

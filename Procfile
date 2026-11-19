@@ -1,2 +1,2 @@
 release: alembic upgrade head
-web: python -m app.main
+web: sh -c "alembic upgrade head && python -m app.main"
