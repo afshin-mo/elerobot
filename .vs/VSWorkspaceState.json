@@ -1,0 +1,11 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\app",
+    "\\app\\core",
+    "\\app\\i18n",
+    "\\tests"
+  ],
+  "SelectedNode": "\\tests\\test_ticket_flow.py",
+  "PreviewInSolutionExplorer": false
+}
