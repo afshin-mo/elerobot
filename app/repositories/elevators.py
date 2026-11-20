@@ -12,6 +12,10 @@ class ElevatorRepository:
         stmt = select(Elevator).where(Elevator.company_id == company_id, Elevator.id == elevator_id)
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
+    async def get_by_token(self, company_id: int, token: str) -> Elevator | None:
+        stmt = select(Elevator).where(Elevator.company_id == company_id, Elevator.qr_token == token)
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
     async def get_by_name(self, company_id: int, building_id: int, name: str) -> Elevator | None:
         stmt = select(Elevator).where(
             Elevator.company_id == company_id, Elevator.building_id == building_id,

@@ -61,3 +61,9 @@ class Currency(str, enum.Enum):
     IQD = "IQD"  # Iraqi dinar
     IRR = "IRR"  # rial
     IRT = "IRT"  # toman
+
+
+class AlertStatus(str, enum.Enum):
+    NEW = "new"
+    TICKET_CREATED = "ticket_created"
+    DISMISSED = "dismissed"

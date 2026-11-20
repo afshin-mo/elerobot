@@ -42,3 +42,4 @@ class Elevator(Base, IdMixin, TenantMixin, TimestampMixin):
     install_date: Mapped[date | None] = mapped_column(Date)
     notes: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    qr_token: Mapped[str | None] = mapped_column(String(32), unique=True)  # random token of the QR link

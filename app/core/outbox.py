@@ -19,6 +19,7 @@ class Notification:
     contract_id: int | None = None  # contract messages; action renew adds a renewal button
     visit_id: int | None = None  # service visit messages; action remind adds the customer's buttons
     invoice_id: int | None = None  # invoice messages (an open button is added)
+    alert_id: int | None = None  # emergency alert for managers (open, create ticket, dismiss buttons)
 
 
 class Outbox:

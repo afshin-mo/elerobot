@@ -3,7 +3,7 @@ from datetime import datetime
 
 from aiogram import BaseMiddleware
 from aiogram.exceptions import TelegramForbiddenError
-from aiogram.methods import SendMessage
+from aiogram.methods import GetMe, SendMessage
 from aiogram.client.session.base import BaseSession
 from aiogram.types import CallbackQuery, Chat, Contact, Message, MessageEntity, PhotoSize, Update
 from aiogram.types import User as TgUser
@@ -27,6 +27,8 @@ class FakeSession(BaseSession):
         pass
 
     async def make_request(self, bot, method, timeout=None):
+        if isinstance(method, GetMe):
+            return TgUser(id=999, is_bot=True, first_name="Bot", username="TestBot")
         if isinstance(method, SendMessage) and method.chat_id in self.blocked:
             raise TelegramForbiddenError(method=method, message="Forbidden: bot was blocked by the user")
         text = getattr(method, "text", None) or getattr(method, "caption", None)
@@ -50,20 +52,21 @@ class Inject(BaseMiddleware):
         return await handler(event, data)
 
 
-def _tg_user(tg_id):
-    return TgUser(id=tg_id, is_bot=False, first_name="Ali", last_name="T")
+def _tg_user(tg_id, language_code=None, username=None):
+    return TgUser(id=tg_id, is_bot=False, first_name="Ali", last_name="T",
+                  language_code=language_code, username=username)
 
 
-def _message(tg_id, **kw):
+def _message(tg_id, language_code=None, username=None, **kw):
     return Message(
         message_id=1, date=datetime.now(), chat=Chat(id=tg_id, type="private"),
-        from_user=_tg_user(tg_id), **kw,
+        from_user=_tg_user(tg_id, language_code, username), **kw,
     )
 
 
-def text_update(text, n, tg_id=TG_ID):
+def text_update(text, n, tg_id=TG_ID, language_code=None, username=None):
     entities = [MessageEntity(type="bot_command", offset=0, length=len(text.split()[0]))] if text.startswith("/") else None
-    return Update(update_id=n, message=_message(tg_id, text=text, entities=entities))
+    return Update(update_id=n, message=_message(tg_id, language_code, username, text=text, entities=entities))
 
 
 def lang_update(code, n, tg_id=TG_ID):

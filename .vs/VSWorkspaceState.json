@@ -2,10 +2,8 @@
   "ExpandedNodes": [
     "",
     "\\app",
-    "\\app\\core",
-    "\\app\\i18n",
-    "\\tests"
+    "\\app\\i18n"
   ],
-  "SelectedNode": "\\Procfile",
+  "SelectedNode": "\\app\\main.py",
   "PreviewInSolutionExplorer": false
 }

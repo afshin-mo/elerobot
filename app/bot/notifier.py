@@ -18,6 +18,14 @@ def _markup(n: Notification) -> InlineKeyboardMarkup | None:
             InlineKeyboardButton(text=t(n.language, "btn_lead_contacted"), callback_data=f"l:set:{n.lead_id}:contacted"),
         ]
         return InlineKeyboardMarkup(inline_keyboard=[row])
+    if n.alert_id is not None:
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=t(n.language, "btn_open_alert"), callback_data=f"q:view:{n.alert_id}")],
+            [
+                InlineKeyboardButton(text=t(n.language, "btn_alert_ticket"), callback_data=f"q:tk:{n.alert_id}"),
+                InlineKeyboardButton(text=t(n.language, "btn_alert_dismiss"), callback_data=f"q:dm:{n.alert_id}"),
+            ],
+        ])
     if n.invoice_id is not None:
         return InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text=t(n.language, "btn_open_invoice"), callback_data=f"i:view:{n.invoice_id}"),

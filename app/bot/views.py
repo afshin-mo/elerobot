@@ -8,10 +8,12 @@ from app.core.i18n import t
 from app.core.timeutil import LOCAL_TZ
 from app.models import (
     Building, Contract, ContractStatus, Currency, Elevator, Invoice, InvoiceKind, InvoiceStatus, Lead,
-    LeadStatus, RepeatUnit, ReviewStatus, Role, ServiceVisit, TicketStatus, User, VisitStatus,
+    AlertStatus, LeadStatus, RepeatUnit, ReviewStatus, Role, ServiceVisit, TicketStatus, User,
+    VisitStatus,
 )
 from app.services.contracts import ContractDetails
 from app.services.directory import PAGE_SIZE
+from app.services.emergency import AlertDetails
 from app.services.invoice_format import money
 from app.services.visits import VisitDetails
 from app.services.tickets import TicketDetails, TicketRow
@@ -53,6 +55,7 @@ def main_menu(user: User) -> tuple[str, Markup]:
             [Btn(text=t(lang, "btn_contracts"), callback_data="c:menu")],
             [Btn(text=t(lang, "btn_visits"), callback_data="v:menu")],
             [Btn(text=t(lang, "btn_invoices"), callback_data="i:menu")],
+            [Btn(text=t(lang, "btn_alerts"), callback_data="q:list:0")],
             [Btn(text=t(lang, "btn_leads"), callback_data="l:list:0")],
         ]
         if user.is_admin:  # only the admin manages managers
@@ -176,6 +179,7 @@ def elevator_card(lang: str, elevator: Elevator, building: Building):
             _edit_button(lang, "e", elevator.id, "notes", "notes"),
         ],
         [Btn(text=t(lang, "btn_visits_elevator"), callback_data=f"v:el:{elevator.id}")],
+        [Btn(text=t(lang, "btn_qr"), callback_data=f"q:qr:{elevator.id}")],
         [_toggle_button(lang, "e", elevator.id, elevator.is_active)],
         [Btn(text=t(lang, "btn_back"), callback_data=f"b:view:{elevator.building_id}")],
     ]
@@ -733,3 +737,99 @@ def invoice_draft(lang: str, text: str, has_items: bool, can_issue: bool):
         rows.append([Btn(text=t(lang, "btn_issue_invoice"), callback_data="i:issue")])
     rows.append([Btn(text=t(lang, "btn_discard"), callback_data="i:drop")])
     return text, _kb(rows)
+
+
+# ---- QR emergency alert ----
+
+_STATE_CODES = {"sent": "s", "recent": "r", "limited": "l", "inactive": "i"}
+_CODE_STATES = {code: state for state, code in _STATE_CODES.items()}
+EMERGENCY_LANGUAGES = (("ckb", "کوردی"), ("fa", "فارسی"), ("en", "English"))
+
+
+def emergency_screen(lang: str, building: Building, elevator: Elevator, state: str, token: str):
+    """What the person sees after scanning the code. The language buttons carry the state and
+    the token, so switching language never sends another alert."""
+    lines = [t(lang, "emergency_title"), t(lang, "emergency_unit", building=building.name, elevator=elevator.name), ""]
+    lines.append(t(lang, f"emergency_{state}"))
+    if state != "inactive":
+        lines += ["", t(lang, "emergency_safety"), "", t(lang, "emergency_numbers")]
+    code = _STATE_CODES[state]
+    rows = [[
+        Btn(text=label, callback_data=f"q:l:{lang_code}:{code}:{token}")
+        for lang_code, label in EMERGENCY_LANGUAGES if lang_code != lang
+    ]]
+    return "\n".join(lines), _kb(rows)
+
+
+def emergency_state_from_code(code: str) -> str | None:
+    return _CODE_STATES.get(code)
+
+
+def alerts_list(lang: str, rows, total: int, new: int, page: int):
+    text = t(lang, "title_alerts", total=total, new=new)
+    if not rows:
+        text += "\n\n" + t(lang, "empty_list")
+    kb = [
+        [Btn(
+            text=f"#{a.id} · {b.name} · {e.name} · {t(lang, 'as_' + a.status.value)}",
+            callback_data=f"q:view:{a.id}",
+        )]
+        for a, e, b in rows
+    ]
+    nav = []
+    if page > 0:
+        nav.append(Btn(text=t(lang, "btn_prev"), callback_data=f"q:list:{page - 1}"))
+    if (page + 1) * PAGE_SIZE < total:
+        nav.append(Btn(text=t(lang, "btn_next"), callback_data=f"q:list:{page + 1}"))
+    if nav:
+        kb.append(nav)
+    kb.append([Btn(text=t(lang, "btn_back"), callback_data="m:menu")])
+    return text, _kb(kb)
+
+
+def alert_card(lang: str, d: AlertDetails):
+    a = d.alert
+    lines = [
+        t(lang, "alert_title", id=a.id, status=t(lang, "as_" + a.status.value)),
+        f"{t(lang, 'label_building')}: {d.building.name}",
+        f"{t(lang, 'label_address')}: {d.building.address or DASH}",
+        f"{t(lang, 'label_elevator')}: {d.elevator.name}",
+        f"{t(lang, 'label_owner')}: {d.owner.name if d.owner else DASH} {LRM}{d.owner.phone if d.owner else ''}{LRM}".rstrip(),
+        t(lang, "alert_from", name=a.name, username=f"@{a.telegram_username}" if a.telegram_username else DASH),
+        f"{t(lang, 'label_time')}: {_when(a.created_at)}",
+    ]
+    if d.handler is not None:
+        lines.append(t(lang, "lead_handled_by", name=d.handler.name, when=_when(a.handled_at)))
+    rows = []
+    if a.status is AlertStatus.NEW:
+        rows.append([
+            Btn(text=t(lang, "btn_alert_ticket"), callback_data=f"q:tk:{a.id}"),
+            Btn(text=t(lang, "btn_alert_dismiss"), callback_data=f"q:dm:{a.id}"),
+        ])
+    if a.ticket_id:
+        rows.append([Btn(text=t(lang, "btn_open_ticket"), callback_data=f"t:view:{a.ticket_id}")])
+    rows.append([Btn(text=t(lang, "btn_back"), callback_data="q:list:0")])
+    return "\n".join(lines), _kb(rows)
+
+
+def confirm_alert_ticket(lang: str, alert_id: int):
+    rows = [[
+        Btn(text=t(lang, "btn_yes"), callback_data=f"q:tk_ok:{alert_id}"),
+        Btn(text=t(lang, "btn_no"), callback_data=f"q:view:{alert_id}"),
+    ]]
+    return t(lang, "confirm_alert_ticket", id=alert_id), _kb(rows)
+
+
+def qr_buttons(lang: str, elevator_id: int):
+    return _kb([
+        [Btn(text=t(lang, "btn_qr_new"), callback_data=f"q:rg:{elevator_id}")],
+        [Btn(text=t(lang, "btn_back"), callback_data=f"e:view:{elevator_id}")],
+    ])
+
+
+def confirm_qr_new(lang: str, elevator_id: int):
+    rows = [[
+        Btn(text=t(lang, "btn_yes"), callback_data=f"q:rg_ok:{elevator_id}"),
+        Btn(text=t(lang, "btn_no"), callback_data=f"e:view:{elevator_id}"),
+    ]]
+    return t(lang, "confirm_qr_new"), _kb(rows)
